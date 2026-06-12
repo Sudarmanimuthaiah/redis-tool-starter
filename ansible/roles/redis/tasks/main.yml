@@ -29,9 +29,18 @@
     remote_src: yes
   when: redis_version_check.rc != 0
 
+- name: Clean Redis source
+  shell: "make distclean"
+  args:
+    chdir: "/tmp/redis-{{ redis_version }}"
+  when: redis_version_check.rc != 0
+  failed_when: false
+
 - name: Compile Redis
   make:
     chdir: "/tmp/redis-{{ redis_version }}"
+    params:
+      MALLOC: libc
   when: redis_version_check.rc != 0
 
 - name: Install Redis
@@ -39,6 +48,16 @@
     chdir: "/tmp/redis-{{ redis_version }}"
     target: install
   when: redis_version_check.rc != 0
+
+- name: Create symlinks in /usr/bin
+  file:
+    src: "/usr/local/bin/{{ item }}"
+    dest: "/usr/bin/{{ item }}"
+    state: link
+    force: yes
+  loop:
+    - redis-server
+    - redis-cli
 
 - name: Create Redis configuration directory
   file:
