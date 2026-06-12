@@ -22,6 +22,8 @@ RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh
 # Configure SSH for root login
 RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
 RUN sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+RUN echo "PubkeyAcceptedKeyTypes +ssh-rsa" >> /etc/ssh/sshd_config
+RUN sed -i 's/#StrictModes yes/StrictModes no/' /etc/ssh/sshd_config
 
 # Fix SSH service for some container environments
 RUN sed -i 's/session    required     pam_loginuid.so/session    optional     pam_loginuid.so/g' /etc/pam.d/sshd

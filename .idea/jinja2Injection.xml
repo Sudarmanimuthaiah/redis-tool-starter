@@ -4,6 +4,7 @@
     <option name="enabledFiles">
       <set>
         <option value="$PROJECT_DIR$/ansible/playbooks/provision.yml" />
+        <option value="$PROJECT_DIR$/ansible/playbooks/verify.yml" />
         <option value="$PROJECT_DIR$/ansible/roles/redis/tasks/main.yml" />
       </set>
     </option>

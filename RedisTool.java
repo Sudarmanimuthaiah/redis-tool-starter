@@ -24,6 +24,7 @@ public class RedisTool {
         if (args.length == 0) {
             System.err.println(ANSI_YELLOW + "Usage: redis-tool <command> [options]" + ANSI_RESET);
             System.err.println("Commands: provision, data, status, upgrade, verify");
+            System.err.println("Global Options: --use-docker (force execution inside container)");
             System.exit(1);
         }
 
@@ -62,10 +63,10 @@ public class RedisTool {
     private static void checkPrerequisites() {
         System.out.println("Checking prerequisites...");
         
-        if (isCommandAvailable("podman")) {
-            runtime = "podman";
-        } else if (isCommandAvailable("docker")) {
+        if (isCommandAvailable("docker")) {
             runtime = "docker";
+        } else if (isCommandAvailable("podman")) {
+            runtime = "podman";
         }
         
         if (runtime != null) {
@@ -96,48 +97,98 @@ public class RedisTool {
                     if (major > 2 || (major == 2 && minor >= 14)) {
                         System.out.println("✓ " + versionOutput + " found");
                     } else {
-                        System.out.println("✗ Ansible version must be 2.14+. Found: " + version);
-                        System.exit(1);
+                        System.out.println("! Ansible version should be 2.14+. Found: " + version + ". Will use Docker.");
                     }
                 } else {
-                    System.out.println("✓ " + versionOutput + " found (could not parse version)");
+                    System.out.println("✓ " + versionOutput + " found");
                 }
             } catch (Exception e) {
-                System.out.println("✗ Failed to check Ansible version: " + e.getMessage());
-                System.exit(1);
+                System.out.println("! Failed to check Ansible version: " + e.getMessage() + ". Will use Docker.");
             }
         } else {
-            System.out.println("✗ Ansible not found");
-            System.exit(1);
+            if (runtime != null) {
+                System.out.println("! Ansible not found on host. Will use Docker container.");
+            } else {
+                System.out.println("✗ Ansible not found and no container runtime available.");
+                System.exit(1);
+            }
         }
         System.out.println("Proceeding...\n");
     }
 
-    private static void runPlaybook(String playbook, Map<String, String> extraVars) throws Exception {
-        List<String> cmd = new ArrayList<>();
-        cmd.add("ansible-playbook");
-        cmd.add("ansible/playbooks/" + playbook);
+    private static void runPlaybook(String playbook, Map<String, String> extraVars, String[] fullArgs) throws Exception {
+        boolean isWsl = System.getenv("WSL_DISTRO_NAME") != null || System.getenv("WSL_INTEROP") != null;
+        boolean forceDocker = hasFlag(fullArgs, "--use-docker");
+        boolean useDocker = !isCommandAvailable("ansible-playbook") 
+            || System.getProperty("os.name").toLowerCase().contains("win")
+            || isWsl
+            || forceDocker
+            || "podman".equals(runtime);
         
-        if (extraVars != null && !extraVars.isEmpty()) {
-            StringBuilder varsStr = new StringBuilder();
-            for (Map.Entry<String, String> entry : extraVars.entrySet()) {
-                if (varsStr.length() > 0) varsStr.append(",");
-                varsStr.append(entry.getKey()).append("=").append(entry.getValue());
-            }
-            cmd.add("--extra-vars");
-            cmd.add(varsStr.toString());
+        if (forceDocker) {
+            System.out.println("! Forced Docker execution requested.");
+        } else if (isWsl) {
+            System.out.println("! WSL2 detected. Using containerized runner to ensure network connectivity.");
+        } else if ("podman".equals(runtime) && isCommandAvailable("ansible-playbook")) {
+            System.out.println("! Podman detected. Using containerized runner to ensure network connectivity.");
         }
         
-        File inventory = new File("ansible/inventory/hosts.ini");
-        if (inventory.exists()) {
-            cmd.add("-i");
-            cmd.add(inventory.getPath());
+        List<String> cmd = new ArrayList<>();
+        if (useDocker) {
+            cmd.add("docker");
+            cmd.add("run");
+            cmd.add("--rm");
+            cmd.add("-v");
+            cmd.add(new File(".").getAbsolutePath() + ":/work");
+            cmd.add("-w");
+            cmd.add("/work");
+            cmd.add("--network");
+            cmd.add("infra_redis-net");
+            cmd.add("-e");
+            cmd.add("ANSIBLE_CONFIG=/work/ansible/ansible.cfg");
+            cmd.add("willhallonline/ansible");
+            cmd.add("sh");
+            cmd.add("-c");
+            
+            StringBuilder innerCmd = new StringBuilder();
+            innerCmd.append("cp infra/id_rsa /tmp/id_rsa && chmod 600 /tmp/id_rsa && ");
+            innerCmd.append("ansible-playbook ansible/playbooks/").append(playbook);
+            innerCmd.append(" -e ansible_ssh_private_key_file=/tmp/id_rsa");
+            
+            if (extraVars != null && !extraVars.isEmpty()) {
+                for (Map.Entry<String, String> entry : extraVars.entrySet()) {
+                    innerCmd.append(" -e ").append(entry.getKey()).append("=").append(entry.getValue());
+                }
+            }
+            
+            cmd.add(innerCmd.toString());
+        } else {
+            cmd.add("ansible-playbook");
+            cmd.add("ansible/playbooks/" + playbook);
+            
+            if (extraVars != null && !extraVars.isEmpty()) {
+                StringBuilder varsStr = new StringBuilder();
+                for (Map.Entry<String, String> entry : extraVars.entrySet()) {
+                    if (varsStr.length() > 0) varsStr.append(",");
+                    varsStr.append(entry.getKey()).append("=").append(entry.getValue());
+                }
+                cmd.add("--extra-vars");
+                cmd.add(varsStr.toString());
+            }
+            
+            File inventory = new File("ansible/inventory/hosts.ini");
+            if (inventory.exists()) {
+                cmd.add("-i");
+                cmd.add(inventory.getPath());
+            }
         }
         
         System.out.println("Executing: " + String.join(" ", cmd));
         
         ProcessBuilder pb = new ProcessBuilder(cmd);
-        pb.environment().put("ANSIBLE_CONFIG", new File("ansible/ansible.cfg").getAbsolutePath());
+        if (!useDocker) {
+            pb.environment().put("ANSIBLE_CONFIG", new File("ansible.cfg").getAbsolutePath());
+        }
         pb.inheritIO();
         
         Process p = pb.start();
@@ -182,7 +233,7 @@ public class RedisTool {
         vars.put("redis_version", version);
         vars.put("masters", masters);
         vars.put("replicas_per_master", replicas);
-        runPlaybook("provision.yml", vars);
+        runPlaybook("provision.yml", vars, args);
     }
 
     private static void cmdData(String[] args) throws Exception {
@@ -198,12 +249,12 @@ public class RedisTool {
             Map<String, String> vars = new HashMap<>();
             vars.put("action", "seed");
             vars.put("key_count", keys);
-            runPlaybook("data.yml", vars);
+            runPlaybook("data.yml", vars, args);
         } else if (subcmd.equals("verify")) {
             System.out.println("Verifying data integrity");
             Map<String, String> vars = new HashMap<>();
             vars.put("action", "verify");
-            runPlaybook("data.yml", vars);
+            runPlaybook("data.yml", vars, args);
         } else {
             System.err.println("Unknown data subcommand: " + subcmd);
             System.exit(1);
@@ -212,7 +263,7 @@ public class RedisTool {
 
     private static void cmdStatus(String[] args) throws Exception {
         System.out.println("Checking cluster status");
-        runPlaybook("status.yml", null);
+        runPlaybook("status.yml", null, args);
     }
 
     private static void cmdUpgrade(String[] args) throws Exception {
@@ -228,7 +279,7 @@ public class RedisTool {
         Map<String, String> vars = new HashMap<>();
         vars.put("target_version", targetVersion);
         vars.put("strategy", strategy);
-        runPlaybook("upgrade.yml", vars);
+        runPlaybook("upgrade.yml", vars, args);
     }
 
     private static void cmdVerify(String[] args) throws Exception {
@@ -236,12 +287,12 @@ public class RedisTool {
             System.out.println("Performing full verification");
             Map<String, String> vars = new HashMap<>();
             vars.put("full", "True");
-            runPlaybook("verify.yml", vars);
+            runPlaybook("verify.yml", vars, args);
         } else {
             System.out.println("Verifying data integrity (standard)");
             Map<String, String> vars = new HashMap<>();
             vars.put("action", "verify");
-            runPlaybook("data.yml", vars);
+            runPlaybook("data.yml", vars, args);
         }
     }
 

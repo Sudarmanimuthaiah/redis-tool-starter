@@ -1,0 +1,37 @@
+Checking prerequisites...
+✓ Docker version 29.1.3, build 29.1.3-0ubuntu4.1 found
+✓ ansible-playbook [core 2.20.1] found
+Proceeding...
+
+Performing full verification
+! WSL2 detected. Using containerized runner to ensure network connectivity.
+Executing: docker run --rm -v /mnt/c/Users/Arun/Downloads/redis-tool-starter/.:/work -w /work --network infra_redis-net -e ANSIBLE_CONFIG=/work/ansible/ansible.cfg willhallonline/ansible sh -c cp infra/id_rsa /tmp/id_rsa && chmod 600 /tmp/id_rsa && ansible-playbook ansible/playbooks/verify.yml -e ansible_ssh_private_key_file=/tmp/id_rsa -e full=True
+
+PLAY [redis-node-1] ************************************************************
+
+TASK [Gathering Facts] *********************************************************
+ok: [redis-node-1]
+
+TASK [1. Data Integrity Check] *************************************************
+changed: [redis-node-1]
+
+TASK [2. Version Consistency Check] ********************************************
+changed: [redis-node-1]
+
+TASK [3. Topology Health Check (Slots)] ****************************************
+changed: [redis-node-1]
+
+TASK [4. Cluster State Check] **************************************************
+changed: [redis-node-1]
+
+TASK [5. Replication Health Check] *********************************************
+changed: [redis-node-1]
+
+TASK [Print Full Verification Summary] *****************************************
+ok: [redis-node-1] => {
+    "msg": "FULL VERIFICATION SUMMARY:\n1. Data Integrity: PASS\n2. Version Consistency: PASS\n3. Topology (16384 slots): PASS\n4. Cluster State (ok): PASS\n5. Replication Health: PASS\n"
+}
+
+PLAY RECAP *********************************************************************
+redis-node-1               : ok=7    changed=5    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+

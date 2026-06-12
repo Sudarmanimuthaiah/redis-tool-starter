@@ -23,7 +23,6 @@ public class DataOps {
             String key = String.format("key:%04d", i);
             String value = getExpectedValue(key);
             try {
-                Process p = new ProcessBuilder("redis-cli", "-h", host, "-p", String.valueOf(port), "set", key, value).start();
                 if (p.waitFor() == 0) {
                     success++;
                 } else {
@@ -44,7 +43,6 @@ public class DataOps {
             String key = String.format("key:%04d", i);
             String expected = getExpectedValue(key);
             try {
-                Process p = new ProcessBuilder("redis-cli", "-h", host, "-p", String.valueOf(port), "get", key).start();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
                 String actual = reader.readLine();
                 p.waitFor();

@@ -44,7 +44,7 @@
           {% set host_port = parts[1].split('@')[0] %}
           {% set ip = host_port.split(':')[0] %}
           {% set master_id = parts[3] %}
-          {% set master_line = cluster_nodes.stdout_lines | select('search', master_id) | first %}
+          {% set master_line = cluster_nodes.stdout_lines | select('search', '^' + master_id) | first %}
           {% set master_host_port = master_line.split()[1].split('@')[0] %}
           {% set info = node_info.stdout_lines | select('search', ip) | first %}
           {% set version = info.split()[1] %}
