@@ -1,0 +1,64 @@
+---
+- name: Check if Redis version is already installed
+  shell: "redis-server --version | grep 'v={{ redis_version }}'"
+  register: redis_version_check
+  failed_when: false
+  changed_when: false
+
+- name: Install build dependencies
+  apt:
+    name:
+      - build-essential
+      - pkg-config
+      - libssl-dev
+      - curl
+    state: present
+    update_cache: yes
+  when: redis_version_check.rc != 0
+
+- name: Download Redis source
+  get_url:
+    url: "https://download.redis.io/releases/redis-{{ redis_version }}.tar.gz"
+    dest: "/tmp/redis-{{ redis_version }}.tar.gz"
+  when: redis_version_check.rc != 0
+
+- name: Extract Redis source
+  unarchive:
+    src: "/tmp/redis-{{ redis_version }}.tar.gz"
+    dest: "/tmp"
+    remote_src: yes
+  when: redis_version_check.rc != 0
+
+- name: Compile Redis
+  make:
+    chdir: "/tmp/redis-{{ redis_version }}"
+  when: redis_version_check.rc != 0
+
+- name: Install Redis
+  make:
+    chdir: "/tmp/redis-{{ redis_version }}"
+    target: install
+  when: redis_version_check.rc != 0
+
+- name: Create Redis configuration directory
+  file:
+    path: /etc/redis
+    state: directory
+    mode: '0755'
+
+- name: Create Redis data directory
+  file:
+    path: /var/lib/redis
+    state: directory
+    mode: '0755'
+
+- name: Template Redis configuration
+  template:
+    src: redis.conf.j2
+    dest: /etc/redis/redis.conf
+  notify: restart redis
+
+- name: Ensure Redis is running
+  shell: "redis-server /etc/redis/redis.conf --daemonize yes"
+  args:
+    creates: /var/run/redis_6379.pid

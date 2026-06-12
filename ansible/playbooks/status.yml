@@ -1,0 +1,57 @@
+---
+- hosts: redis-node-1
+  become: true
+  tasks:
+    - name: Get cluster state
+      shell: redis-cli cluster info | grep cluster_state
+      register: cluster_state
+
+    - name: Get cluster nodes
+      shell: redis-cli cluster nodes
+      register: cluster_nodes
+
+    - name: Get memory usage for all nodes
+      shell: |
+        for host in 10.10.0.11 10.10.0.12 10.10.0.13 10.10.0.14 10.10.0.15 10.10.0.16; do
+          version=$(redis-cli -h $host info server | grep redis_version | cut -d: -f2 | tr -d '\r')
+          mem=$(redis-cli -h $host info memory | grep used_memory_human | cut -d: -f2 | tr -d '\r')
+          echo "$host $version $mem"
+        done
+      register: node_info
+
+    - name: Parse and display status
+      set_fact:
+        status_report: |
+          Cluster State: {{ cluster_state.stdout.split(':')[1] }}
+          
+          MASTERS
+          {% for line in cluster_nodes.stdout_lines %}
+          {% if 'master' in line %}
+          {% set parts = line.split() %}
+          {% set host_port = parts[1].split('@')[0] %}
+          {% set ip = host_port.split(':')[0] %}
+          {% set info = node_info.stdout_lines | select('search', ip) | first %}
+          {% set version = info.split()[1] %}
+          {% set mem = info.split()[2] %}
+          {{ host_port }} [master] v{{ version }} slots: {{ parts[8] if parts|length > 8 else 'N/A' }} mem: {{ mem }}
+          {% endif %}
+          {% endfor %}
+          
+          REPLICAS
+          {% for line in cluster_nodes.stdout_lines %}
+          {% if 'slave' in line or 'replica' in line %}
+          {% set parts = line.split() %}
+          {% set host_port = parts[1].split('@')[0] %}
+          {% set ip = host_port.split(':')[0] %}
+          {% set master_id = parts[3] %}
+          {% set master_line = cluster_nodes.stdout_lines | select('search', master_id) | first %}
+          {% set master_host_port = master_line.split()[1].split('@')[0] %}
+          {% set info = node_info.stdout_lines | select('search', ip) | first %}
+          {% set version = info.split()[1] %}
+          {% set mem = info.split()[2] %}
+          {{ host_port }} [replica] v{{ version }} replicating: {{ master_host_port }} mem: {{ mem }}
+          {% endif %}
+          {% endfor %}
+
+    - debug:
+        msg: "{{ status_report.split('\n') }}"

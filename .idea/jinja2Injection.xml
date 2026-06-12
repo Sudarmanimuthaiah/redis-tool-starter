@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="Jinja2InjectionSettings">
+    <option name="enabledFiles">
+      <set>
+        <option value="$PROJECT_DIR$/ansible/playbooks/provision.yml" />
+        <option value="$PROJECT_DIR$/ansible/roles/redis/tasks/main.yml" />
+      </set>
+    </option>
+  </component>
+</project>

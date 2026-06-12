@@ -1,0 +1,125 @@
+---
+- hosts: redis-node-1
+  become: true
+  tasks:
+    - name: Pre-flight check - Cluster health
+      shell: redis-cli cluster info | grep cluster_state:ok
+      register: health_check
+      failed_when: health_check.rc != 0
+
+    - name: Pre-flight check - Data integrity
+      shell: "java /tmp/DataOps.java verify"
+      register: data_verify_pre
+
+    - name: Get cluster nodes info
+      shell: redis-cli cluster nodes
+      register: cluster_nodes_pre
+
+- hosts: redis_nodes
+  become: true
+  serial: 1
+  tasks:
+    - name: Get node info from cluster
+      shell: redis-cli cluster nodes | grep {{ ansible_host }}
+      register: node_line
+      delegate_to: redis-node-1
+
+    - name: Set node role
+      set_fact:
+        is_replica: "{{ 'slave' in node_line.stdout or 'replica' in node_line.stdout }}"
+
+    - name: Upgrade Replica Node
+      block:
+        - name: Shutdown Redis
+          shell: redis-cli shutdown
+          failed_when: false
+
+        - name: Install new Redis version
+          include_role:
+            name: redis
+          vars:
+            redis_version: "{{ target_version }}"
+
+        - name: Wait for replica to rejoin and sync
+          shell: redis-cli cluster info | grep cluster_state:ok
+          register: rejoins
+          until: rejoins.rc == 0
+          retries: 10
+          delay: 5
+
+        - debug:
+            msg: "Upgraded replica {{ ansible_host }} — cluster: ok"
+      when: is_replica | default(false)
+
+- hosts: redis_nodes
+  become: true
+  serial: 1
+  tasks:
+    - name: Get node info from cluster
+      shell: redis-cli cluster nodes | grep {{ ansible_host }}
+      register: node_line
+      delegate_to: redis-node-1
+
+    - name: Set node role
+      set_fact:
+        is_master: "{{ 'master' in node_line.stdout }}"
+
+    - name: Upgrade Master Node with Failover
+      block:
+        - name: Get replica IP for this master
+          shell: |
+            master_id=$(redis-cli cluster nodes | grep {{ ansible_host }} | cut -d' ' -f1)
+            redis-cli cluster nodes | grep $master_id | grep -E 'slave|replica' | cut -d' ' -f2 | cut -d'@' -f1 | cut -d':' -f1
+          register: replica_ip
+          delegate_to: redis-node-1
+
+        - name: Trigger failover on replica
+          shell: redis-cli -h {{ replica_ip.stdout }} cluster failover
+          delegate_to: redis-node-1
+
+        - name: Wait for failover to complete
+          shell: |
+            redis-cli -h {{ replica_ip.stdout }} cluster nodes | grep {{ replica_ip.stdout }} | grep master
+          register: failover_done
+          until: failover_done.rc == 0
+          retries: 12
+          delay: 5
+          delegate_to: redis-node-1
+
+        - name: Shutdown old master (now replica)
+          shell: redis-cli shutdown
+          failed_when: false
+
+        - name: Install new Redis version
+          include_role:
+            name: redis
+          vars:
+            redis_version: "{{ target_version }}"
+
+        - name: Wait for node to rejoin as replica
+          shell: redis-cli cluster info | grep cluster_state:ok
+          register: rejoins
+          until: rejoins.rc == 0
+          retries: 10
+          delay: 5
+
+        - debug:
+            msg: "Upgraded master {{ ansible_host }} — cluster: ok"
+      when: is_master | default(false)
+
+- hosts: redis-node-1
+  become: true
+  tasks:
+    - name: Post-upgrade verification - Data integrity
+      shell: "java /tmp/DataOps.java verify"
+      register: data_verify_post
+
+    - name: Post-upgrade verification - Version consistency
+      shell: |
+        for host in 10.10.0.11 10.10.0.12 10.10.0.13 10.10.0.14 10.10.0.15 10.10.0.16; do
+          redis-cli -h $host info server | grep redis_version:{{ target_version }}
+        done
+      register: version_check
+
+    - debug:
+        msg: "UPGRADE COMPLETE — all nodes on v{{ target_version }}, data integrity verified"

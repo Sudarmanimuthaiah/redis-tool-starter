@@ -1,0 +1,52 @@
+---
+- hosts: redis-node-1
+  become: true
+  tasks:
+    - name: 1. Data Integrity Check
+      shell: "java /tmp/DataOps.java verify"
+      register: data_integrity
+      ignore_errors: yes
+
+    - name: 2. Version Consistency Check
+      shell: |
+        first_version=$(redis-cli info server | grep redis_version | cut -d: -f2)
+        for host in 10.10.0.11 10.10.0.12 10.10.0.13 10.10.0.14 10.10.0.15 10.10.0.16; do
+          this_version=$(redis-cli -h $host info server | grep redis_version | cut -d: -f2)
+          if [ "$this_version" != "$first_version" ]; then exit 1; fi
+        done
+      register: version_consistency
+      ignore_errors: yes
+
+    - name: 3. Topology Health Check (Slots)
+      shell: |
+        slots_covered=$(redis-cli cluster info | grep cluster_slots_assigned | cut -d: -f2 | tr -d '\r')
+        if [ "$slots_covered" != "16384" ]; then exit 1; fi
+      register: topology_slots
+      ignore_errors: yes
+
+    - name: 4. Cluster State Check
+      shell: redis-cli cluster info | grep cluster_state:ok
+      register: cluster_state
+      ignore_errors: yes
+
+    - name: 5. Replication Health Check
+      shell: |
+        for host in 10.10.0.11 10.10.0.12 10.10.0.13 10.10.0.14 10.10.0.15 10.10.0.16; do
+          role=$(redis-cli -h $host info replication | grep role | cut -d: -f2 | tr -d '\r')
+          if [ "$role" = "slave" ]; then
+            status=$(redis-cli -h $host info replication | grep master_link_status | cut -d: -f2 | tr -d '\r')
+            if [ "$status" != "up" ]; then exit 1; fi
+          fi
+        done
+      register: replication_health
+      ignore_errors: yes
+
+    - name: Print Full Verification Summary
+      debug:
+        msg: |
+          FULL VERIFICATION SUMMARY:
+          1. Data Integrity: {{ 'PASS' if data_integrity.rc == 0 else 'FAIL' }}
+          2. Version Consistency: {{ 'PASS' if version_consistency.rc == 0 else 'FAIL' }}
+          3. Topology (16384 slots): {{ 'PASS' if topology_slots.rc == 0 else 'FAIL' }}
+          4. Cluster State (ok): {{ 'PASS' if cluster_state.rc == 0 else 'FAIL' }}
+          5. Replication Health: {{ 'PASS' if replication_health.rc == 0 else 'FAIL' }}

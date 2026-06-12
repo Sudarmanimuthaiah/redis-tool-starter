@@ -1,0 +1,34 @@
+---
+- hosts: redis-node-1
+  become: true
+  tasks:
+    - name: Copy data_ops script to node
+      copy:
+        src: DataOps.java
+        dest: /tmp/DataOps.java
+        mode: '0755'
+
+    - name: Seed data
+      shell: "java /tmp/DataOps.java seed {{ key_count | default(1000) }}"
+      when: action == "seed"
+      register: seed_output
+
+    - name: Verify data
+      shell: "java /tmp/DataOps.java verify {{ key_count | default(1000) }}"
+      when: action == "verify"
+      register: verify_output
+
+    - debug:
+        msg: "{{ seed_output.stdout if action == 'seed' else verify_output.stdout }}"
+
+    - name: Get distribution across masters
+      shell: |
+        for host in 10.10.0.11 10.10.0.12 10.10.0.13; do
+          echo "Host $host: $(redis-cli -h $host dbsize) keys"
+        done
+      when: action == "seed"
+      register: dist_output
+
+    - debug:
+        msg: "{{ dist_output.stdout_lines }}"
+      when: action == "seed"

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="OrchidE Mapping Settings">
+    <option name="orchidePlaybookLocations">
+      <list>
+        <option value="$PROJECT_DIR$/ansible/playbooks" />
+      </list>
+    </option>
+    <option name="orchideRoleLocations">
+      <list>
+        <option value="$PROJECT_DIR$/ansible/roles" />
+      </list>
+    </option>
+  </component>
+</project>

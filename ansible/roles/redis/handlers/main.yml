@@ -1,0 +1,7 @@
+---
+- name: restart redis
+  shell: |
+    redis-cli shutdown
+    redis-server /etc/redis/redis.conf --daemonize yes
+  async: 10
+  poll: 0

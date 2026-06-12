@@ -1,0 +1,31 @@
+FROM ubuntu:22.04
+
+# Avoid prompts from apt
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install SSH server, Python, Java and build essentials for Redis
+RUN apt-get update && apt-get install -y \
+    openssh-server \
+    python3 \
+    python3-pip \
+    default-jdk \
+    build-essential \
+    pkg-config \
+    libssl-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Setup SSH
+RUN mkdir /var/run/sshd
+RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh
+
+# Configure SSH for root login
+RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config
+RUN sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+
+# Fix SSH service for some container environments
+RUN sed -i 's/session    required     pam_loginuid.so/session    optional     pam_loginuid.so/g' /etc/pam.d/sshd
+
+EXPOSE 22 6379 16379
+
+CMD ["/usr/sbin/sshd", "-D"]
