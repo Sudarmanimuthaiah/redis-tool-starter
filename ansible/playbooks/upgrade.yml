@@ -3,7 +3,7 @@
   become: true
   tasks:
     - name: Pre-flight check - Cluster health
-      shell: redis-cli cluster info | grep cluster_state:ok
+      shell: "redis-cli -h {{ ansible_host | default('127.0.0.1') }} cluster info | grep cluster_state:ok"
       register: health_check
       failed_when: health_check.rc != 0
 

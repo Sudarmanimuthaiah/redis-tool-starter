@@ -1,9 +1,6 @@
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.InputStreamReader;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -155,6 +152,11 @@ public class RedisTool {
             innerCmd.append("ansible-playbook ansible/playbooks/").append(playbook);
             innerCmd.append(" -e ansible_ssh_private_key_file=/tmp/id_rsa");
             
+            File inventory = new File("ansible/inventory/hosts.ini");
+            if (inventory.exists()) {
+                innerCmd.append(" -i ansible/inventory/hosts.ini");
+            }
+            
             if (extraVars != null && !extraVars.isEmpty()) {
                 for (Map.Entry<String, String> entry : extraVars.entrySet()) {
                     innerCmd.append(" -e ").append(entry.getKey()).append("=").append(entry.getValue());
@@ -187,7 +189,7 @@ public class RedisTool {
         
         ProcessBuilder pb = new ProcessBuilder(cmd);
         if (!useDocker) {
-            pb.environment().put("ANSIBLE_CONFIG", new File("ansible.cfg").getAbsolutePath());
+            pb.environment().put("ANSIBLE_CONFIG", new File("ansible/ansible.cfg").getAbsolutePath());
         }
         pb.inheritIO();
         

@@ -56,6 +56,8 @@ redis-tool-starter/
 │   ├── playbooks/         # Lifecycle workflows
 │   │   ├── provision.yml  # Bootstraps Redis & forms cluster
 │   │   ├── status.yml     # Real-time health & topology reporting
+
+
 │   │   ├── upgrade.yml    # Orchestrates zero-downtime rolling upgrades
 │   │   ├── data.yml       # Data operations (Seed/Verify)
 │   │   └── DataOps.java   # Java utility for cluster-aware Redis ops
@@ -132,3 +134,25 @@ The tool automatically detects your environment (Windows vs. WSL2 vs. Native Lin
 *   **Network**: Nodes are assigned static IPs from `10.10.0.11` to `10.10.0.16`.
 *   **SSH**: Root access is enabled via the bundled `id_rsa` key.
 *   **Redis**: Default installation path is `/usr/local/bin` with configuration at `/etc/redis/redis.conf`.
+
+
+
+
+1. Set a Docker Restart Policy
+   You can tell Docker to automatically wake up all your Redis nodes the 
+    moment your computer turns on and Docker Desktop opens. Run this command in your terminal:
+
+
+       docker update --restart unless-stopped redis-node-1 redis-node-2 redis-node-3 redis-node-4 redis-node-5 redis-node-6
+
+2. Stop them gracefully (The Golden Rule)
+   To completely stop the data corruption we fought today, 
+   you must turn off the nodes gently before you shut down your laptop for the day.
+
+
+       docker stop redis-node-1 redis-node-2 redis-node-3 redis-node-4 redis-node-5 redis-node-6
+
+
+docker compose stop 
+
+docker compose start
