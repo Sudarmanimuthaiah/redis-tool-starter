@@ -116,7 +116,7 @@ public class RedisTool {
     private static void runPlaybook(String playbook, Map<String, String> extraVars, String[] fullArgs) throws Exception {
         boolean isWsl = System.getenv("WSL_DISTRO_NAME") != null || System.getenv("WSL_INTEROP") != null;
         boolean forceDocker = hasFlag(fullArgs, "--use-docker");
-        boolean useDocker = !isCommandAvailable("ansible-playbook") 
+        boolean useDocker = !isCommandAvailable("ansible-playbook")
             || System.getProperty("os.name").toLowerCase().contains("win")
             || isWsl
             || forceDocker

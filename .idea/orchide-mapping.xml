@@ -4,6 +4,8 @@
     <option name="orchidePlaybookLocations">
       <list>
         <option value="$PROJECT_DIR$/ansible/playbooks" />
+        <option value="$PROJECT_DIR$/submission.ansible/playbooks" />
+        <option value="$PROJECT_DIR$/submission/ansible/playbooks" />
       </list>
     </option>
     <option name="orchideRoleLocations">

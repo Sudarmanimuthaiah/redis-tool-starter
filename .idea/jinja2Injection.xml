@@ -8,6 +8,8 @@
         <option value="$PROJECT_DIR$/ansible/playbooks/status.yml" />
         <option value="$PROJECT_DIR$/ansible/playbooks/verify.yml" />
         <option value="$PROJECT_DIR$/ansible/roles/redis/tasks/main.yml" />
+        <option value="$PROJECT_DIR$/submission.ansible/playbooks/data.yml" />
+        <option value="$PROJECT_DIR$/submission/ansible/playbooks/verify.yml" />
       </set>
     </option>
   </component>

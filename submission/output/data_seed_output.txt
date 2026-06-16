@@ -1,11 +1,11 @@
 Checking prerequisites...
 ✓ Docker version 29.1.3, build 29.1.3-0ubuntu4.1 found
-✓ ansible-playbook [core 2.20.1] found
+✓ submission.ansible-playbook [core 2.20.1] found
 Proceeding...
 
 Seeding 1000 keys into the cluster
 ! WSL2 detected. Using containerized runner to ensure network connectivity.
-Executing: docker run --rm -v /mnt/c/Users/Arun/Downloads/redis-tool-starter/.:/work -w /work --network infra_redis-net -e ANSIBLE_CONFIG=/work/ansible/ansible.cfg willhallonline/ansible sh -c cp infra/id_rsa /tmp/id_rsa && chmod 600 /tmp/id_rsa && ansible-playbook ansible/playbooks/data.yml -e ansible_ssh_private_key_file=/tmp/id_rsa -e action=seed -e key_count=1000
+Executing: docker run --rm -v /mnt/c/Users/Arun/Downloads/redis-tool-starter/.:/work -w /work --network infra_redis-net -e ANSIBLE_CONFIG=/work/submission.ansible/submission.ansible.cfg willhallonline/submission.ansible sh -c cp submission.infra/id_rsa /tmp/id_rsa && chmod 600 /tmp/id_rsa && submission.ansible-playbook submission.ansible/playbooks/data.yml -e ansible_ssh_private_key_file=/tmp/id_rsa -e action=seed -e key_count=1000
 
 PLAY [redis-node-1] ************************************************************
 
@@ -45,12 +45,12 @@ redis-node-1               : ok=6    changed=2    unreachable=0    failed=0    s
                                    verification
 Checking prerequisites...
 ✓ Docker version 29.1.3, build 29.1.3-0ubuntu4.1 found
-✓ ansible-playbook [core 2.20.1] found
+✓ submission.ansible-playbook [core 2.20.1] found
 Proceeding...
 
 Verifying data integrity
 ! WSL2 detected. Using containerized runner to ensure network connectivity.
-Executing: docker run --rm -v /mnt/c/Users/Arun/Downloads/redis-tool-starter/.:/work -w /work --network infra_redis-net -e ANSIBLE_CONFIG=/work/ansible/ansible.cfg willhallonline/ansible sh -c cp infra/id_rsa /tmp/id_rsa && chmod 600 /tmp/id_rsa && ansible-playbook ansible/playbooks/data.yml -e ansible_ssh_private_key_file=/tmp/id_rsa -e action=verify
+Executing: docker run --rm -v /mnt/c/Users/Arun/Downloads/redis-tool-starter/.:/work -w /work --network infra_redis-net -e ANSIBLE_CONFIG=/work/submission.ansible/submission.ansible.cfg willhallonline/submission.ansible sh -c cp submission.infra/id_rsa /tmp/id_rsa && chmod 600 /tmp/id_rsa && submission.ansible-playbook submission.ansible/playbooks/data.yml -e ansible_ssh_private_key_file=/tmp/id_rsa -e action=verify
 
 PLAY [redis-node-1] ************************************************************
 
